@@ -1,0 +1,3 @@
+[submodule "src/tf-lstm-char-cnn"]
+	path = src/tf-lstm-char-cnn
+	url = https://github.com/zhangzibin/tf-lstm-char-cnn.git
