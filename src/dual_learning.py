@@ -3,10 +3,20 @@ import numpy as np
 import sys
 import data_util
 import seq2seq_wrapper
+import lm_wrapper
 
 class Dual(object):
     def __init__(self, params):
         self.params = params
+        self.lm_a = lm_wrapper.LM(params.lm_a)
+        self.lm_b = lm_wrapper.LM(params.lm_b)
+
+        lines = ['This is a test .', 'This is another test .']
+        self.lm_a.evaluate(lines)
+        lines = ['This is a test .', 'This is another test .']
+        self.lm_b.evaluate(lines)
+        exit()
+
         self.seq2seq_ab = seq2seq_wrapper.Seq2Seq(xseq_len=params.seq2seq.max_len_A,
                                        yseq_len=params.seq2seq.max_len_B,
                                        xvocab_size=params.seq2seq.vocab_size_A,
@@ -23,6 +33,7 @@ class Dual(object):
                                        emb_dim=params.seq2seq.emb_dim,
                                        num_layers=params.seq2seq.num_layers,
                                        model_name='seq2seq_ba')
+
 
     # get the feed dictionary
     def get_feed_seq2seq(self, X, Y, model, keep_prob):

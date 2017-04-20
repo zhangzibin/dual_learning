@@ -14,7 +14,40 @@ params.seq2seq = util.AttrDict(
         emb_dim = 16,
         num_layers = 1,
         batch_size = 32,
-        steps = 100000
+        steps = 100000,
+        beam_size = 2
+        )
+params.lm_a = util.AttrDict(
+        model_name = 'lm_a',
+        load_model = '../cv/en/epoch001_7.2803.model',
+        train_dir = '../cv/en',
+        rnn_size = 16,
+        highway_layers = 2,
+        char_embed_size = 30,
+        kernels = '[1,2,3]',
+        kernel_features = '[16,16,16]',
+        rnn_layers = 2,
+        num_unroll_steps = 10,
+        batch_size = 1,
+        max_word_length = 65,
+        seed = 3435,
+        eos = '+'
+        )
+params.lm_b = util.AttrDict(
+        model_name = 'lm_b',
+        load_model = '../cv/fr/epoch001_7.3436.model',
+        train_dir = '../cv/fr',
+        rnn_size = 16,
+        highway_layers = 2,
+        char_embed_size = 30,
+        kernels = '[1,2,3]',
+        kernel_features = '[16,16,16]',
+        rnn_layers = 2,
+        num_unroll_steps = 10,
+        batch_size = 1,
+        max_word_length = 65,
+        seed = 3435,
+        eos = '+'
         )
 
 datas = util.AttrDict()

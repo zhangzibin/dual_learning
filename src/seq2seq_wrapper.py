@@ -16,7 +16,6 @@ class Seq2Seq(object):
         self.ckpt_path = ckpt_path
         self.model_name = model_name
 
-
         # build thy graph
         #  attach any part of the graph that needs to be exposed, to the self
         # def __graph__():
@@ -77,9 +76,7 @@ class Seq2Seq(object):
         # build comput graph
         # __graph__()
         sys.stdout.write('</log>\n')
-        self.restore_last_session()
 
-    def restore_last_session(self):
         self.saver = tf.train.Saver()
         # create a session
         self.sess = tf.Session()
