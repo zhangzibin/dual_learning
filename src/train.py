@@ -1,19 +1,31 @@
 
+import util
 import tensorflow as tf
 import data_util
+import dual_learning
+from pprint import pprint
 
+params = util.AttrDict()
+params.seq2seq = util.AttrDict(
+        max_len_A = 21,
+        max_len_B = 21,
+        ckpt_path_AB = 'en_fr',
+        ckpt_path_BA = 'fr_en',
+        emb_dim = 16,
+        num_layers = 1,
+        batch_size = 32,
+        steps = 100000
+        )
 
-# path of bilingual pairwise data A<->B
-# vocab can be any word not in training data, as training data is small
-bi_A_vocab = '../data/en_fr/vocab.en'
-bi_A_files = ('../data/en_fr/train.en', '../data/en_fr/valid.en', '../data/en_fr/test.en')
-bi_B_vocab = '../data/en_fr/vocab.fr'
-bi_B_files = ('../data/en_fr/train.fr', '../data/en_fr/valid.fr', '../data/en_fr/test.fr')
+datas = util.AttrDict()
+datas.bi_word2idx_A, (datas.bi_train_A, datas.bi_valid_A, datas.bi_test_A) = \
+        data_util.get_bi_data('../data/en_fr/', endwith='en', max_len=params.seq2seq.max_len_A)
+datas.bi_word2idx_B, (datas.bi_train_B, datas.bi_valid_B, datas.bi_test_B) = \
+        data_util.get_bi_data('../data/en_fr/', endwith='fr', max_len=params.seq2seq.max_len_B)
 
-# path of monolingual data
-mo_A_file = '../data/en/train.txt'
-mo_B_file = '../data/fr/train.txt'
+params.seq2seq.vocab_size_A = len(datas.bi_word2idx_A)
+params.seq2seq.vocab_size_B = len(datas.bi_word2idx_B)
+pprint(params)
 
-A_idx2word, A_word2idx = data_util.get_vocab(bi_A_vocab)
-B_idx2word, B_word2idx = data_util.get_vocab(bi_B_vocab)
-print(len(A_idx2word))
+dual_model = dual_learning.Dual(params)
+dual_model.train(datas)
