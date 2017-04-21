@@ -4,6 +4,7 @@ import sys
 import data_util
 import seq2seq_wrapper
 import lm_wrapper
+import random
 
 class Dual(object):
     def __init__(self, params):
@@ -11,11 +12,12 @@ class Dual(object):
         self.lm_a = lm_wrapper.LM(params.lm_a)
         self.lm_b = lm_wrapper.LM(params.lm_b)
 
+        '''
         lines = ['This is a test .', 'This is another test .']
         self.lm_a.evaluate(lines)
         lines = ['This is a test .', 'This is another test .']
         self.lm_b.evaluate(lines)
-        exit()
+        '''
 
         self.seq2seq_ab = seq2seq_wrapper.Seq2Seq(xseq_len=params.seq2seq.max_len_A,
                                        yseq_len=params.seq2seq.max_len_B,
@@ -76,14 +78,24 @@ class Dual(object):
         valid_batch_ab_gen = data_util.rand_batch_gen(datas.bi_valid_A, datas.bi_valid_B, self.params.seq2seq.batch_size)
         valid_batch_ba_gen = data_util.rand_batch_gen(datas.bi_valid_B, datas.bi_valid_A, self.params.seq2seq.batch_size)
 
+        ratio_dual = 0.5
         # run M epochs
         for i in range(self.params.seq2seq.steps):
-            train_loss_AB = self.train_step(self.seq2seq_ab, train_batch_ab_gen)
-            train_loss_BA = self.train_step(self.seq2seq_ba, train_batch_ba_gen)
+            rand_point = random.uniform(0, 1)
 
-            if i%10 ==0:
-                print('step %d, AB train loss : %.6f' % (i, train_loss_AB))
-                print('step %d, BA train loss : %.6f' % (i, train_loss_BA))
+            # if rand number larger than ratio of dual learning, using normal seq2seq pair to train model
+            if rand_point > ratio_dual:
+                train_loss_AB = self.train_step(self.seq2seq_ab, train_batch_ab_gen)
+                train_loss_BA = self.train_step(self.seq2seq_ba, train_batch_ba_gen)
+                if i%10 ==0:
+                    print('step %d, seq2seq, AB train loss : %.6f' % (i, train_loss_AB))
+                    print('step %d, seq2seq, BA train loss : %.6f' % (i, train_loss_BA))
+            # using dual learning to train model
+            else:
+                # translate A-->B_mid
+                if i%10 ==0:
+                    print('step %d, dual, AB train loss : %.6f')
+                    print('step %d, dual, BA train loss : %.6f')
 
             if i and i%100 == 0: # TODO : make this tunable by the user
                 # evaluate to get validation loss

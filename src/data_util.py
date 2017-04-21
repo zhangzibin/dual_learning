@@ -33,6 +33,9 @@ def get_bi_data(path, endwith='en', max_len=50):
     tensors = get_tensors(data_files, word2idx, max_len)
     return word2idx, tensors
 
+def get_mono_data(path, vocab, max_len=50):
+    return get_tensors([path], vocab, max_len)[0]
+
 def rand_batch_gen(x, y, batch_size):
     while True:
         sample_idx = sample(list(np.arange(len(x))), batch_size)

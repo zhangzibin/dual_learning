@@ -5,6 +5,7 @@ import data_util
 import dual_learning
 from pprint import pprint
 
+# parameters
 params = util.AttrDict()
 params.seq2seq = util.AttrDict(
         max_len_A = 21,
@@ -50,15 +51,24 @@ params.lm_b = util.AttrDict(
         eos = '+'
         )
 
+# prepare data
 datas = util.AttrDict()
+# bilingual data for warm start
 datas.bi_word2idx_A, (datas.bi_train_A, datas.bi_valid_A, datas.bi_test_A) = \
         data_util.get_bi_data('../data/en_fr/', endwith='en', max_len=params.seq2seq.max_len_A)
 datas.bi_word2idx_B, (datas.bi_train_B, datas.bi_valid_B, datas.bi_test_B) = \
         data_util.get_bi_data('../data/en_fr/', endwith='fr', max_len=params.seq2seq.max_len_B)
+# monolingual data for reinforcement learning
+datas.mono_A = data_util.get_mono_data('../data/en/train.txt', vocab=datas.bi_word2idx_A, max_len=params.seq2seq.max_len_A)
+datas.mono_B = data_util.get_mono_data('../data/fr/train.txt', vocab=datas.bi_word2idx_B, max_len=params.seq2seq.max_len_B)
 
+# update vocab size to params for embedding layer
 params.seq2seq.vocab_size_A = len(datas.bi_word2idx_A)
 params.seq2seq.vocab_size_B = len(datas.bi_word2idx_B)
 pprint(params)
 
+# define model
 dual_model = dual_learning.Dual(params)
+
+# start training
 dual_model.train(datas)
