@@ -8,7 +8,7 @@ class Seq2Seq(object):
     def __init__(self, xseq_len, yseq_len,
             xvocab_size, yvocab_size,
             emb_dim, num_layers, ckpt_path,
-            lr=0.0001, model_name='seq2seq_model'):
+            lr=0.01, model_name='seq2seq_model'):
 
         # attach these arguments to self
         self.xseq_len = xseq_len
@@ -67,15 +67,14 @@ class Seq2Seq(object):
 
             # weighted loss
             #  TODO : add parameter hint
-            loss_weights = [ tf.ones_like(label, dtype=tf.float32) for label in self.labels ]
-            self.loss = tf.contrib.legacy_seq2seq.sequence_loss(self.decode_outputs, self.labels, loss_weights, yvocab_size)
+            loss_weights = [tf.ones_like(label, dtype=tf.float32) for label in self.labels]
+            self.logits = []
+            for output in self.decode_outputs:
+                self.logits.append(tf.nn.softmax(output))
+            self.loss_seq2seq = tf.contrib.legacy_seq2seq.sequence_loss(self.decode_outputs, self.labels, loss_weights, yvocab_size)
             # train op to minimize the loss
-            self.train_op = tf.train.AdamOptimizer(learning_rate=lr).minimize(self.loss)
-
-        sys.stdout.write('<log> Building Graph ')
-        # build comput graph
-        # __graph__()
-        sys.stdout.write('</log>\n')
+            # self.train_op_seq2seq = tf.train.AdamOptimizer(learning_rate=lr).minimize(self.loss_seq2seq)
+            self.train_op_seq2seq = tf.train.GradientDescentOptimizer(learning_rate=lr).minimize(self.loss_seq2seq)
 
         self.saver = tf.train.Saver()
         # create a session
@@ -88,3 +87,61 @@ class Seq2Seq(object):
         self.sess.run(tf.global_variables_initializer())
         # return to user
         # return sess
+
+    # prediction
+    def predict(self, X):
+        feed_dict = {self.enc_ip[t]: X[t] for t in range(self.xseq_len)}
+        feed_dict[self.keep_prob] = 1.
+        dec_op_v = self.sess.run(self.decode_outputs_test, feed_dict)
+        # dec_op_v is a list; also need to transpose 0,1 indices
+        #  (interchange batch_size and timesteps dimensions
+        dec_op_v = np.array(dec_op_v).transpose([1,0,2])
+        # return the index of item with highest probability
+        return np.argmax(dec_op_v, axis=2)
+
+    # get the feed dictionary
+    def get_feed_seq2seq(self, X, Y, keep_prob):
+        feed_dict = {self.enc_ip[t]: X[t] for t in range(self.xseq_len)}
+        feed_dict.update({self.labels[t]: Y[t] for t in range(self.yseq_len)})
+        feed_dict[self.keep_prob] = keep_prob # dropout prob
+        return feed_dict
+
+    # evaluate 'num_batches' batches
+    def eval_batches(self, eval_batch_gen, num_batches):
+        losses = []
+        for i in range(num_batches):
+            loss_v, dec_op_v, batchX, batchY = self.eval_step(eval_batch_gen)
+            losses.append(loss_v)
+        return np.mean(losses)
+
+    def eval_step(self, eval_batch_gen):
+        # get batches
+        batchX, batchY = eval_batch_gen.__next__()
+        # build feed
+        feed_dict = self.get_feed_seq2seq(batchX, batchY, keep_prob=1.)
+        loss_v, dec_op_v = self.sess.run([self.loss_seq2seq, self.decode_outputs_test], feed_dict)
+        # dec_op_v is a list; also need to transpose 0,1 indices
+        #  (interchange batch_size and timesteps dimensions
+        dec_op_v = np.array(dec_op_v).transpose([1,0,2])
+        return loss_v, dec_op_v, batchX, batchY
+
+    def train_step_seq2seq(self, train_batch_gen):
+        # get batches
+        batchX, batchY = train_batch_gen.__next__()
+        # build feed
+        feed_dict = self.get_feed_seq2seq(batchX, batchY, keep_prob=0.5)
+        _, loss_v = self.sess.run([self.train_op_seq2seq, self.loss_seq2seq], feed_dict)
+        return loss_v
+
+    # log probability of X->Y
+    def test(self, X, Y):
+        feed_dict = self.get_feed_seq2seq(X, Y, keep_prob=1.)
+        logits = self.sess.run(self.logits, feed_dict)
+        logits = np.stack(logits).transpose([1,0,2])
+        Y = Y.transpose([1,0])
+
+        print(Y.shape)
+        print(logits.shape)
+        # TODO: compute score
+        return logits
+

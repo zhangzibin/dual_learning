@@ -174,7 +174,9 @@ def inference_graph(char_vocab_size, word_vocab_size,
             for idx, output in enumerate(outputs):
                 if idx > 0:
                     scope.reuse_variables()
-                logits.append(linear(output, word_vocab_size))
+                logit = linear(output, word_vocab_size)
+                logit = tf.nn.softmax(logit)
+                logits.append(logit)
 
     return adict(
         input = input_,

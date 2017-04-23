@@ -4,7 +4,6 @@ import sys
 import os
 
 import lm
-import time
 from lm_data_reader import Vocab, DataReader
 
 class LM(object):
@@ -15,7 +14,6 @@ class LM(object):
         for w in self.word_vocab._index2token:
             actual_max_word_length = max(actual_max_word_length, len(w) + 2)
         FLAGS.max_word_length = actual_max_word_length
-
 
         with tf.Graph().as_default():
             self.sess = tf.Session()
@@ -46,7 +44,7 @@ class LM(object):
                 print('Loaded model from', FLAGS.load_model, 'saved at global step', global_step.eval())
         self.FLAGS = FLAGS
 
-    def load_data(self, lines):
+    def load_data(self, lines, min_len=10):
 
         word_tokens = []
         char_tokens = []
@@ -56,15 +54,19 @@ class LM(object):
             line = line.replace('<unk>', ' | ')
             if self.FLAGS.eos:
                 line = line.replace(self.FLAGS.eos, '')
+            line = line.split()
+            if len(line) < min_len:
+                line += ['|']*(min_len-len(line))
 
-            for word in line.split():
+            for word in line:
                 if len(word) > self.FLAGS.max_word_length - 2:  # space for 'start' and 'end' chars
                     word = word[:self.FLAGS.max_word_length-2]
 
-                word_array = self.word_vocab.get(word)
+                word_array = self.word_vocab.get(word, self.word_vocab.get('|'))
                 word_tokens.append(word_array)
 
                 char_array = [self.char_vocab.get(c) for c in '{' + word + '}']
+                char_array = [c for c in char_array if c is not None]
                 char_tokens.append(char_array)
 
             if self.FLAGS.eos:
@@ -83,29 +85,26 @@ class LM(object):
         return word_tensors, char_tensors
 
     def evaluate(self, lines):
-        rnn_state = self.sess.run(self.m.initial_rnn_state)
-        word_tensors, char_tensors = self.load_data(lines)
-        test_reader = DataReader(word_tensors, char_tensors,
-                                  self.FLAGS.batch_size, self.FLAGS.num_unroll_steps)
-        count = 0
-        avg_loss = 0
-        start_time = time.time()
-        for x, y in test_reader.iter():
-            count += 1
-            loss, rnn_state = self.sess.run([
-                self.m.loss,
-                self.m.final_rnn_state
-            ], {
-                self.m.input  : x,
-                self.m.targets: y,
-                self.m.initial_rnn_state: rnn_state
-            })
+        probs = []
+        for line in lines:
+            rnn_state = self.sess.run(self.m.initial_rnn_state)
+            word_tensors, char_tensors = self.load_data([line])
+            test_reader = DataReader(word_tensors, char_tensors,
+                                      self.FLAGS.batch_size, self.FLAGS.num_unroll_steps)
+            prob = []
+            for x, y in test_reader.iter():
+                logits, rnn_state = self.sess.run([
+                    self.m.logits,
+                    self.m.final_rnn_state
+                ], {
+                    self.m.input  : x,
+                    self.m.targets: y,
+                    self.m.initial_rnn_state: rnn_state
+                })
+            for logit, yy in zip(logits, y[0,:]):
+                prob.append(logit[0,yy])
+            prob = np.mean(prob)
+            probs.append(prob)
 
-            avg_loss += loss
-
-        avg_loss /= count
-        time_elapsed = time.time() - start_time
-
-        # print("test loss = %6.8f, perplexity = %6.8f" % (avg_loss, np.exp(avg_loss)))
-        # print("test samples:", count*self.FLAGS.batch_size, "time elapsed:", time_elapsed, "time per one batch:", time_elapsed/count)
+        return np.array(probs)
 
