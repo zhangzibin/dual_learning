@@ -139,9 +139,9 @@ class Seq2Seq(object):
         logits = self.sess.run(self.logits, feed_dict)
         logits = np.stack(logits).transpose([1,0,2])
         Y = Y.transpose([1,0])
-
-        print(Y.shape)
-        print(logits.shape)
-        # TODO: compute score
-        return logits
+        probs = np.zeros(Y.shape)
+        for idx in range(Y.shape[0]):
+            for jdx in range(Y.shape[1]):
+                probs[idx, jdx] = logits[idx, jdx, Y[idx,jdx]]
+        return np.average(probs, axis=1)
 
