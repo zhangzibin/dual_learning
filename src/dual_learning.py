@@ -47,9 +47,9 @@ class Dual(object):
 
         # update parameter using rewards
         total_r = params.seq2seq.alpha*r1 + (1-params.seq2seq.alpha)*r2
-        loss_ab = seq2seq_ab.train_step_dual(batch_A, batch_B_mid, total_r)
+        loss_ab = seq2seq_ab.update_step_dual(batch_A, batch_B_mid, total_r)
         alpha_ = np.array([(1-params.seq2seq.alpha)]*params.seq2seq.batch_size)
-        loss_ba = seq2seq_ba.train_step_dual(batch_B_mid, batch_A, alpha_)
+        loss_ba = seq2seq_ba.update_step_dual(batch_B_mid, batch_A, alpha_)
         return loss_ab, loss_ba
 
 

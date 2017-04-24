@@ -176,7 +176,7 @@ class Seq2Seq(object):
         _, loss_v = self.sess.run([self.train_op_seq2seq, self.loss_seq2seq], feed_dict)
         return loss_v
 
-    def train_step_dual(self, batchX, batchY, rewards):
+    def update_step_dual(self, batchX, batchY, rewards):
         # build feed
         feed_dict = self.get_feed_seq2seq(batchX, batchY, keep_prob=0.5, rewards=rewards)
         _, loss_v = self.sess.run([self.train_op_dual, self.loss_dual], feed_dict)
