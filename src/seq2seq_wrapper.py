@@ -2,6 +2,33 @@ import tensorflow as tf
 import numpy as np
 import sys
 
+def sequence_loss(logits, targets, weights, average_across_timesteps=True, average_across_batch=True, reward=None):
+    time_steps = tf.shape(targets)[0]
+    batch_size = tf.shape(targets)[1]
+
+    logits_ = tf.reshape(logits, tf.stack([time_steps * batch_size, logits.get_shape()[2].value]))
+    targets_ = tf.reshape(targets, tf.stack([time_steps * batch_size]))
+
+    crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_, labels=targets_)
+    crossent = tf.reshape(crossent, tf.stack([time_steps, batch_size]))
+
+    if reward is not None:
+        crossent *= tf.stop_gradient(reward)
+
+    log_perp = tf.reduce_sum(crossent * weights, 0)
+
+    if average_across_timesteps:
+        total_size = tf.reduce_sum(weights, 0)
+        total_size += 1e-12  # just to avoid division by 0 for all-0 weights
+        log_perp /= total_size
+
+    cost = tf.reduce_sum(log_perp)
+
+    if average_across_batch:
+        batch_size = tf.shape(targets)[1]
+        return cost / tf.cast(batch_size, tf.float32)
+    else:
+        return cost
 
 class Seq2Seq(object):
 
@@ -36,6 +63,9 @@ class Seq2Seq(object):
             #  decoder inputs : 'GO' + [ y1, y2, ... y_t-1 ]
             self.dec_ip = [ tf.zeros_like(self.enc_ip[0], dtype=tf.int64, name='GO') ] + self.labels[:-1]
 
+            # rewards for dual learning learning
+            self.rewards = tf.placeholder(tf.float32, (None,), name="rewards")
+
 
             # Basic LSTM cell wrapped in Dropout Wrapper
             self.keep_prob = tf.placeholder(tf.float32)
@@ -64,17 +94,27 @@ class Seq2Seq(object):
 
             # now, for training,
             #  build loss function
+            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
 
             # weighted loss
             #  TODO : add parameter hint
-            loss_weights = [tf.ones_like(label, dtype=tf.float32) for label in self.labels]
+
+            # normalize logits for computing probilitic
             self.logits = []
             for output in self.decode_outputs:
                 self.logits.append(tf.nn.softmax(output))
-            self.loss_seq2seq = tf.contrib.legacy_seq2seq.sequence_loss(self.decode_outputs, self.labels, loss_weights, yvocab_size)
+
+
+            loss_weights = [tf.ones_like(label, dtype=tf.float32) for label in self.labels]
+            self.decode_outputs = tf.stack(self.decode_outputs)
+            # loss for seq2seq
+            self.loss_seq2seq = sequence_loss(self.decode_outputs, self.labels, loss_weights)
+            # loss for dual learning
+            self.loss_dual = sequence_loss(self.decode_outputs, self.labels, loss_weights, reward=self.rewards)
+
             # train op to minimize the loss
-            # self.train_op_seq2seq = tf.train.AdamOptimizer(learning_rate=lr).minimize(self.loss_seq2seq)
-            self.train_op_seq2seq = tf.train.GradientDescentOptimizer(learning_rate=lr).minimize(self.loss_seq2seq)
+            self.train_op_seq2seq = self.optimizer.minimize(self.loss_seq2seq)
+            self.train_op_dual = self.optimizer.minimize(self.loss_dual)
 
         self.saver = tf.train.Saver()
         # create a session
@@ -88,6 +128,7 @@ class Seq2Seq(object):
         # return to user
         # return sess
 
+
     # prediction
     def predict(self, X):
         feed_dict = {self.enc_ip[t]: X[t] for t in range(self.xseq_len)}
@@ -100,10 +141,12 @@ class Seq2Seq(object):
         return np.argmax(dec_op_v, axis=2)
 
     # get the feed dictionary
-    def get_feed_seq2seq(self, X, Y, keep_prob):
+    def get_feed_seq2seq(self, X, Y, keep_prob, rewards=None):
         feed_dict = {self.enc_ip[t]: X[t] for t in range(self.xseq_len)}
         feed_dict.update({self.labels[t]: Y[t] for t in range(self.yseq_len)})
         feed_dict[self.keep_prob] = keep_prob # dropout prob
+        if rewards is not None:
+            feed_dict[self.rewards] = rewards
         return feed_dict
 
     # evaluate 'num_batches' batches
@@ -131,6 +174,12 @@ class Seq2Seq(object):
         # build feed
         feed_dict = self.get_feed_seq2seq(batchX, batchY, keep_prob=0.5)
         _, loss_v = self.sess.run([self.train_op_seq2seq, self.loss_seq2seq], feed_dict)
+        return loss_v
+
+    def train_step_dual(self, batchX, batchY, rewards):
+        # build feed
+        feed_dict = self.get_feed_seq2seq(batchX, batchY, keep_prob=0.5, rewards=rewards)
+        _, loss_v = self.sess.run([self.train_op_dual, self.loss_dual], feed_dict)
         return loss_v
 
     # log probability of X->Y

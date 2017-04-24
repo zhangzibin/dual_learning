@@ -16,7 +16,9 @@ params.seq2seq = util.AttrDict(
         num_layers = 1,
         batch_size = 32,
         steps = 100000,
-        beam_size = 2
+        beam_size = 2,
+        alpha = 0.5,
+        ratio_dual = 0.5
         )
 params.lm_a = util.AttrDict(
         model_name = 'lm_a',

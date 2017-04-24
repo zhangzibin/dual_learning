@@ -32,7 +32,7 @@ class Dual(object):
 
     # a step of dual learning, we use A->B as varible names here, actually it supports B->A too
     # TODO: support beam search to generate K middle sentence B
-    def train_step_dual(self, datas, params, mono_a_gen, seq2seq_ab, lookup_b, lm_b):
+    def train_step_dual(self, datas, params, mono_a_gen, seq2seq_ab, seq2seq_ba, lookup_b, lm_b):
         # translate A-->B_mid
         batch_A = mono_a_gen.__next__()[0]
         output = seq2seq_ab.predict(batch_A)
@@ -45,6 +45,14 @@ class Dual(object):
         # log probability of A recovered from B_mid
         r2 = self.seq2seq_ba.test(batch_B_mid, batch_A)
 
+        # update parameter using rewards
+        total_r = params.seq2seq.alpha*r1 + (1-params.seq2seq.alpha)*r2
+        loss_ab = seq2seq_ab.train_step_dual(batch_A, batch_B_mid, total_r)
+        alpha_ = np.array([(1-params.seq2seq.alpha)]*params.seq2seq.batch_size)
+        loss_ba = seq2seq_ba.train_step_dual(batch_B_mid, batch_A, alpha_)
+        return loss_ab, loss_ba
+
+
     def train(self, datas, params):
         train_batch_ab_gen = data_util.rand_batch_gen(datas.bi_train_A, datas.bi_train_B, self.params.seq2seq.batch_size)
         train_batch_ba_gen = data_util.rand_batch_gen(datas.bi_train_B, datas.bi_train_A, self.params.seq2seq.batch_size)
@@ -55,22 +63,25 @@ class Dual(object):
         mono_a_gen = data_util.rand_batch_gen(datas.mono_A, datas.mono_A, self.params.seq2seq.batch_size)
         mono_b_gen = data_util.rand_batch_gen(datas.mono_B, datas.mono_B, self.params.seq2seq.batch_size)
 
-        ratio_dual = 0.5
         # run M epochs
         for i in range(self.params.seq2seq.steps):
             rand_point = random.uniform(0, 1)
 
             # if rand number larger than ratio of dual learning, using normal seq2seq pair to train model
-            if rand_point > ratio_dual:
+            if rand_point > params.seq2seq.ratio_dual:
                 train_loss_AB = self.seq2seq_ab.train_step_seq2seq(train_batch_ab_gen)
                 train_loss_BA = self.seq2seq_ba.train_step_seq2seq(train_batch_ba_gen)
                 if i%10 ==0:
-                    print('step %d, seq2seq, AB train loss : %.6f' % (i, train_loss_AB))
-                    print('step %d, seq2seq, BA train loss : %.6f' % (i, train_loss_BA))
+                    print('step %d, seq2seq, AB train loss: %.6f' % (i, train_loss_AB))
+                    print('step %d, seq2seq, BA train loss: %.6f' % (i, train_loss_BA))
             # using dual learning to train model
             else:
-                self.train_step_dual(datas, params, mono_a_gen, self.seq2seq_ab, datas.bi_idx2word_B, self.lm_b)
-                self.train_step_dual(datas, params, mono_b_gen, self.seq2seq_ba, datas.bi_idx2word_A, self.lm_a)
+                train_loss_AB, train_loss_BA = self.train_step_dual(datas, params, mono_a_gen, self.seq2seq_ab, self.seq2seq_ba, datas.bi_idx2word_B, self.lm_b)
+                if i%10 ==0:
+                    print('step %d, dual_ab, AB train loss: %.6f, BA train loss: %.6f' % (i, train_loss_AB, train_loss_BA))
+                train_loss_BA, train_loss_AB = self.train_step_dual(datas, params, mono_b_gen, self.seq2seq_ba, self.seq2seq_ab, datas.bi_idx2word_A, self.lm_a)
+                if i%10 ==0:
+                    print('step %d, dual_ba, AB train loss: %.6f, BA train loss: %.6f' % (i, train_loss_AB, train_loss_BA))
 
             if i and i%100 == 0: # TODO : make this tunable by the user
                 # evaluate to get validation loss
