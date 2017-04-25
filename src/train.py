@@ -56,9 +56,9 @@ params.lm_b = util.AttrDict(
 # prepare data
 datas = util.AttrDict()
 # bilingual data for warm start
-(datas.bi_idx2word_A, datas.bi_word2idx_A), (datas.bi_train_A, datas.bi_valid_A, datas.bi_test_A) = \
+(datas.bi_idx2word_A, datas.bi_word2idx_A), (datas.bi_train_A, datas.bi_valid_A, datas.bi_test_A), datas.raw_test_A = \
         data_util.get_bi_data('../data/en_fr/', endwith='en', max_len=params.seq2seq.max_len_A)
-(datas.bi_idx2word_B, datas.bi_word2idx_B), (datas.bi_train_B, datas.bi_valid_B, datas.bi_test_B) = \
+(datas.bi_idx2word_B, datas.bi_word2idx_B), (datas.bi_train_B, datas.bi_valid_B, datas.bi_test_B), datas.raw_test_B = \
         data_util.get_bi_data('../data/en_fr/', endwith='fr', max_len=params.seq2seq.max_len_B)
 # monolingual data for reinforcement learning
 datas.mono_A = data_util.get_mono_data('../data/en/train.txt', vocab=datas.bi_word2idx_A, max_len=params.seq2seq.max_len_A)

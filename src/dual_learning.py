@@ -52,6 +52,29 @@ class Dual(object):
         loss_ba = seq2seq_ba.update_step_dual(batch_B_mid, batch_A, alpha_)
         return loss_ab, loss_ba
 
+    def test_batches(self, seq2seq_ab, test_batch_ab_gen, lookup_b, num_batches=32):
+        all_B_predict = []
+        all_B_raw = []
+        for i in range(num_batches):
+            batchA, batchB, rawB = test_batch_ab_gen.__next__()
+            output = seq2seq_ab.predict(batchA)
+            batch_B_predict = []
+            for oi in output:
+                batch_B_predict.append(data_util.decode(sequence=oi, lookup=lookup_b, separator=' '))
+            all_B_predict += batch_B_predict
+            all_B_raw += rawB
+        bleu, bleu_log = data_util.corpus_bleu(all_B_predict, all_B_raw)
+        return bleu
+
+    def test(self, datas, params):
+        test_batch_ab_gen = data_util.rand_batch_gen3(datas.bi_test_A, datas.bi_test_B, datas.raw_test_B, self.params.seq2seq.batch_size)
+        test_batch_ba_gen = data_util.rand_batch_gen3(datas.bi_test_B, datas.bi_test_A, datas.raw_test_A, self.params.seq2seq.batch_size)
+
+        bleu_ab = self.test_batches(self.seq2seq_ab, test_batch_ab_gen, datas.bi_idx2word_B)
+        print('AB test bleu : {0:.6f}'.format(bleu_ab))
+        bleu_ba = self.test_batches(self.seq2seq_ba, test_batch_ba_gen, datas.bi_idx2word_A)
+        print('BA test bleu : {0:.6f}'.format(bleu_ba))
+
 
     def train(self, datas, params):
         train_batch_ab_gen = data_util.rand_batch_gen(datas.bi_train_A, datas.bi_train_B, self.params.seq2seq.batch_size)
@@ -59,6 +82,7 @@ class Dual(object):
 
         valid_batch_ab_gen = data_util.rand_batch_gen(datas.bi_valid_A, datas.bi_valid_B, self.params.seq2seq.batch_size)
         valid_batch_ba_gen = data_util.rand_batch_gen(datas.bi_valid_B, datas.bi_valid_A, self.params.seq2seq.batch_size)
+
 
         mono_a_gen = data_util.rand_batch_gen(datas.mono_A, datas.mono_A, self.params.seq2seq.batch_size)
         mono_b_gen = data_util.rand_batch_gen(datas.mono_B, datas.mono_B, self.params.seq2seq.batch_size)
@@ -92,3 +116,4 @@ class Dual(object):
                 print('BA val loss : {0:.6f}'.format(val_loss_BA))
                 sys.stdout.flush()
 
+                self.test(datas, params)
