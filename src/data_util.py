@@ -15,7 +15,7 @@ def get_tensors_from_file(filenames, word2idx, max_len):
     all_result = []
     for filename in filenames:
         with open(filename) as f:
-            data = [line.split(' ') for line in f.readlines()]
+            data = [line.strip().split(' ') for line in f.readlines()]
         result = []
         vocab = set(word2idx.keys())
         for line in data:
@@ -45,7 +45,7 @@ def get_bi_data(path, endwith='en', max_len=50):
     tensors = get_tensors_from_file(data_files, word2idx, max_len)
     # the test set should keep raw text to calculate bleu
     with open(data_files[2]) as f:
-        raw_testset = f.readlines()
+        raw_testset = [line.strip() for line in f.readlines()]
     return (idx2word, word2idx), tensors, raw_testset
 
 def get_mono_data(path, vocab, max_len=50):
@@ -61,8 +61,8 @@ def rand_batch_gen3(x, y, z, batch_size):
         sample_idx = sample(list(np.arange(len(x))), batch_size)
         yield x[sample_idx].T, y[sample_idx].T, [z[idx] for idx in sample_idx]
 
-def decode(sequence, lookup, separator=' '): # 0 used for padding, is ignored
-    return separator.join([ lookup[element] for element in sequence if element ])
+def decode(sequence, lookup, separator=' '):
+    return separator.join([lookup[element] for element in sequence if element])
 
 def corpus_bleu(hypotheses, references, smoothing=False, order=4, **kwargs):
     """

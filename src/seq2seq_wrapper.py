@@ -35,7 +35,7 @@ class Seq2Seq(object):
     def __init__(self, xseq_len, yseq_len,
             xvocab_size, yvocab_size,
             emb_dim, num_layers, ckpt_path,
-            lr=0.01, model_name='seq2seq_model'):
+            lr=0.0001, model_name='seq2seq_model'):
 
         # attach these arguments to self
         self.xseq_len = xseq_len
@@ -94,7 +94,8 @@ class Seq2Seq(object):
 
             # now, for training,
             #  build loss function
-            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
+            # self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=lr)
 
             # weighted loss
             #  TODO : add parameter hint
@@ -106,11 +107,11 @@ class Seq2Seq(object):
 
 
             loss_weights = [tf.ones_like(label, dtype=tf.float32) for label in self.labels]
-            self.decode_outputs = tf.stack(self.decode_outputs)
             # loss for seq2seq
-            self.loss_seq2seq = sequence_loss(self.decode_outputs, self.labels, loss_weights)
+            self.loss_seq2seq = tf.contrib.legacy_seq2seq.sequence_loss(self.decode_outputs, self.labels, loss_weights)
             # loss for dual learning
-            self.loss_dual = sequence_loss(self.decode_outputs, self.labels, loss_weights, reward=self.rewards)
+            self.decode_outputs2 = tf.stack(self.decode_outputs)
+            self.loss_dual = sequence_loss(self.decode_outputs2, self.labels, loss_weights, reward=self.rewards)
 
             # train op to minimize the loss
             self.train_op_seq2seq = self.optimizer.minimize(self.loss_seq2seq)
