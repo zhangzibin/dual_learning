@@ -3,6 +3,7 @@ import math
 import numpy as np
 from random import sample
 from collections import Counter
+import nltk
 
 def get_vocab_from_file(filename):
     with open(filename) as f:
@@ -64,7 +65,7 @@ def rand_batch_gen3(x, y, z, batch_size):
 def decode(sequence, lookup, separator=' '):
     return separator.join([lookup[element] for element in sequence if element])
 
-def corpus_bleu(hypotheses, references, smoothing=False, order=4, **kwargs):
+def corpus_bleu_old(hypotheses, references, smoothing=False, order=4, **kwargs):
     """
     Computes the BLEU score at the corpus-level between a list of translation hypotheses and references.
     With the default settings, this computes the exact same score as `multi-bleu.perl`.
@@ -112,3 +113,17 @@ def corpus_bleu(hypotheses, references, smoothing=False, order=4, **kwargs):
     bleu = 100 * bp * score
 
     return bleu, 'penalty={:.3f} ratio={:.3f}'.format(bp, hyp_length / ref_length)
+
+def corpus_bleu(hypotheses, references):
+    hypotheses = [sent.split() for sent in hypotheses]
+    references = [[sent.split()] for sent in references]
+
+    return nltk.translate.bleu_score.corpus_bleu(references, hypotheses)
+
+def test_bleu():
+    h = ['A B C D G H K', 'E F G H E F G H']
+    r = ['I J K D G H K', 'M N L I J K L M N']
+    print corpus_bleu(h, r)
+
+if __name__ == '__main__':
+    test_bleu()
