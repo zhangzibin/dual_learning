@@ -66,7 +66,6 @@ class Dual(object):
                     all_B_raw.append(ooii)
         print(1, all_B_raw[0])
         print(2, all_B_predict[0])
-        print()
         if len(all_B_predict) > 0:
             bleu, bleu_log = data_util.corpus_bleu(all_B_predict, all_B_raw)
         else:
@@ -113,7 +112,7 @@ class Dual(object):
                 if i%10 ==0:
                     print('step %d, dual_ba, AB train loss: %.6f, BA train loss: %.6f' % (i, train_loss_AB, train_loss_BA))
 
-            if i and i%10 == 0: # TODO : make this tunable by the user
+            if i%10 == 0: # TODO : make this tunable by the user
                 # evaluate to get validation loss
                 val_loss_AB = self.seq2seq_ab.eval_batches(valid_batch_ab_gen, 16) # TODO : and this
                 val_loss_BA = self.seq2seq_ba.eval_batches(valid_batch_ba_gen, 16) # TODO : and this

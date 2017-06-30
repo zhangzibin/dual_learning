@@ -118,12 +118,13 @@ def corpus_bleu(hypotheses, references):
     hypotheses = [sent.split() for sent in hypotheses]
     references = [[sent.split()] for sent in references]
 
-    return nltk.translate.bleu_score.corpus_bleu(references, hypotheses)
+    return nltk.translate.bleu_score.corpus_bleu(references, hypotheses), ''
 
 def test_bleu():
     h = ['A B C D G H K', 'E F G H E F G H']
     r = ['I J K D G H K', 'M N L I J K L M N']
-    print corpus_bleu(h, r)
+    print(corpus_bleu_old(h, r))
+    print(corpus_bleu(h, r))
 
 if __name__ == '__main__':
     test_bleu()
